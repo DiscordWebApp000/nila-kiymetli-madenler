@@ -1,0 +1,1 @@
+# nila-kiymetli-madenler
