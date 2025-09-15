@@ -1,18 +1,15 @@
 
+'use client';
+
 import { 
   Navbar, 
   Footer, 
   FAQSection, 
   MarketSummary, 
-  DetailedGoldPrices, 
-  PriceAlerts, 
-  MarketAnalysis 
+  LiveGoldPrices, 
+  PriceAlerts
 } from '@/components';
 import { 
-  marketSummaryData, 
-  enhancedGoldPrices, 
-  priceAlertsData, 
-  marketAnalysisData, 
   goldPriceFAQ 
 } from '@/data/goldPricesData';
 
@@ -56,21 +53,13 @@ export default function AltinFiyatlariPage() {
       </section>
 
       {/* Market Summary Section */}
-      <MarketSummary items={marketSummaryData} />
+      <MarketSummary />
 
-      {/* Detailed Gold Prices Section */}
-      <DetailedGoldPrices items={enhancedGoldPrices} />
+      {/* Live Gold Prices Section */}
+      <LiveGoldPrices />
 
       {/* Price Alerts Section */}
-      <PriceAlerts alerts={priceAlertsData} />
-
-      {/* Market Analysis Section */}
-      <MarketAnalysis 
-        goldTrend={marketAnalysisData.goldTrend}
-        marketSentiment={marketAnalysisData.marketSentiment}
-        volatility={marketAnalysisData.volatility}
-        recommendation={marketAnalysisData.recommendation}
-      />
+      <PriceAlerts />
 
       {/* FAQ Section */}
       <FAQSection 

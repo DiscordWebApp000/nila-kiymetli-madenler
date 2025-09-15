@@ -1,105 +1,301 @@
-import { ArrowUpRight, ArrowDownRight, TrendingUp } from 'lucide-react';
+'use client';
+import React, { useState, useEffect } from 'react';
+import { ArrowUpRight, ArrowDownRight, TrendingUp, RefreshCw } from 'lucide-react';
 
-// Live gold price data
-const liveGoldPrices = [
-  {
-    id: 1,
-    name: "Gram Altın",
-    currentPrice: 2150.50,
-    change: 12.75,
-    changePercent: 0.60,
-    trend: "up",
-    lastUpdate: "11:35",
-    category: "Yatırım"
+// Types
+interface GoldPriceItem {
+  Alış?: string;
+  Satış?: string;
+  Değişim?: string;
+}
+
+interface PriceData {
+  [key: string]: GoldPriceItem | string;
+  Update_Date: string;
+}
+
+interface GoldItem {
+  id: number;
+  name: string;
+  currentPrice: number;
+  change: number;
+  changePercent: number;
+  trend: "up" | "down";
+  lastUpdate: string;
+  category: string;
+}
+
+type Language = 'tr' | 'en';
+
+// Helper function to parse Turkish number format
+const parseTurkishNumber = (value: string): number => {
+  if (!value) return 0;
+  // Remove all non-numeric characters except dots and commas
+  const cleaned = value.replace(/[^\d,.-]/g, '');
+  // Replace dots (thousands separators) with empty string, then replace comma (decimal separator) with dot
+  const normalized = cleaned.replace(/\./g, '').replace(',', '.');
+  return parseFloat(normalized) || 0;
+};
+
+// Dil çevirileri
+const translations: Record<Language, Record<string, string>> = {
+  tr: {
+    liveTracking: "CANLI TAKİP",
+    liveGoldPrices: "Canlı Altın Fiyatları",
+    description: "Güncel altın fiyatlarını takip edin ve en uygun zamanda yatırım kararlarınızı alın",
+    goldType: "Altın Türü",
+    category: "Kategori",
+    currentPrice: "Güncel Fiyat",
+    change: "Değişim",
+    trend: "Trend",
+    update: "Güncelleme",
+    pricesUpdateEveryMinute: "Fiyatlar her dakika güncellenmektedir",
+    loading: "Veriler yükleniyor...",
+    error: "Veri alınamadı",
+    retry: "Tekrar Dene",
+    gramGold: "Gram Altın",
+    quarterGold: "Çeyrek Altın",
+    halfGold: "Yarım Altın",
+    fullGold: "Tam Altın",
+    republicGold: "Cumhuriyet Altını",
+    ataGold: "Ata Altın",
+    gold14k: "14 Ayar Altın",
+    gold18k: "18 Ayar Altın",
+    gold22k: "22 Ayar Bilezik",
+    fiveGold: "Beşli Altın",
+    jewelryGold: "Ziynet 2.5 Altın",
+    gremseGold: "Gremse Altın",
+    resatGold: "Reşat Altın",
+    hamitGold: "Hamit Altın",
+    investment: "Yatırım",
+    collection: "Koleksiyon",
+    jewelry: "Takı"
   },
-  {
-    id: 2,
-    name: "Çeyrek Altın",
-    currentPrice: 3450.00,
-    change: -8.25,
-    changePercent: -0.24,
-    trend: "down",
-    lastUpdate: "11:35",
-    category: "Yatırım"
-  },
-  {
-    id: 3,
-    name: "Yarım Altın",
-    currentPrice: 6900.00,
-    change: 25.50,
-    changePercent: 0.37,
-    trend: "up",
-    lastUpdate: "11:35",
-    category: "Yatırım"
-  },
-  {
-    id: 4,
-    name: "Tam Altın",
-    currentPrice: 13800.00,
-    change: 45.00,
-    changePercent: 0.33,
-    trend: "up",
-    lastUpdate: "11:35",
-    category: "Yatırım"
-  },
-  {
-    id: 5,
-    name: "Cumhuriyet Altını",
-    currentPrice: 14250.00,
-    change: 32.80,
-    changePercent: 0.23,
-    trend: "up",
-    lastUpdate: "11:35",
-    category: "Koleksiyon"
-  },
-  {
-    id: 6,
-    name: "Ata Altın",
-    currentPrice: 14500.00,
-    change: 28.50,
-    changePercent: 0.20,
-    trend: "up",
-    lastUpdate: "11:35",
-    category: "Koleksiyon"
-  },
-  {
-    id: 7,
-    name: "14 Ayar Altın",
-    currentPrice: 1250.00,
-    change: -5.20,
-    changePercent: -0.41,
-    trend: "down",
-    lastUpdate: "11:35",
-    category: "Takı"
-  },
-  {
-    id: 8,
-    name: "18 Ayar Altın",
-    currentPrice: 1620.00,
-    change: 18.30,
-    changePercent: 1.14,
-    trend: "up",
-    lastUpdate: "11:35",
-    category: "Takı"
+  en: {
+    liveTracking: "LIVE TRACKING",
+    liveGoldPrices: "Live Gold Prices",
+    description: "Track current gold prices and make your investment decisions at the right time",
+    goldType: "Gold Type",
+    category: "Category",
+    currentPrice: "Current Price",
+    change: "Change",
+    trend: "Trend",
+    update: "Update",
+    pricesUpdateEveryMinute: "Prices are updated every minute",
+    loading: "Loading data...",
+    error: "Failed to load data",
+    retry: "Retry",
+    gramGold: "Gram Gold",
+    quarterGold: "Quarter Gold",
+    halfGold: "Half Gold",
+    fullGold: "Full Gold",
+    republicGold: "Republic Gold",
+    ataGold: "Ata Gold",
+    gold14k: "14 Carat Gold",
+    gold18k: "18 Carat Gold",
+    gold22k: "22 Carat Bracelet",
+    fiveGold: "Five Gold",
+    jewelryGold: "Jewelry 2.5 Gold",
+    gremseGold: "Gremse Gold",
+    resatGold: "Resat Gold",
+    hamitGold: "Hamit Gold",
+    investment: "Investment",
+    collection: "Collection",
+    jewelry: "Jewelry"
   }
+};
+
+// Altın türleri ve kategorileri - Sadece API'de mevcut olanlar
+const goldTypes = [
+  { key: 'gram-altin', name: 'gramGold', category: 'investment' },
+  { key: 'ceyrek-altin', name: 'quarterGold', category: 'investment' },
+  { key: 'yarim-altin', name: 'halfGold', category: 'investment' },
+  { key: 'tam-altin', name: 'fullGold', category: 'investment' },
+  { key: 'cumhuriyet-altini', name: 'republicGold', category: 'collection' },
+  { key: 'ata-altin', name: 'ataGold', category: 'collection' },
+  { key: '14-ayar-altin', name: 'gold14k', category: 'jewelry' },
+  { key: '18-ayar-altin', name: 'gold18k', category: 'jewelry' },
+  { key: '22-ayar-bilezik', name: 'gold22k', category: 'jewelry' },
+  { key: 'besli-altin', name: 'fiveGold', category: 'investment' },
+  { key: 'ikibucuk-altin', name: 'jewelryGold', category: 'jewelry' },
+  { key: 'gremse-altin', name: 'gremseGold', category: 'collection' },
+  { key: 'resat-altin', name: 'resatGold', category: 'collection' },
+  { key: 'hamit-altin', name: 'hamitGold', category: 'collection' }
 ];
 
 export default function LiveGoldPrices() {
+  const [priceData, setPriceData] = useState<PriceData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [language, setLanguage] = useState<Language>('tr');
+  const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
+
+  // API'den veri çekme
+  useEffect(() => {
+    const fetchPriceData = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const response = await fetch('https://finans.truncgil.com/today.json');
+        if (!response.ok) {
+          throw new Error('Veri alınamadı');
+        }
+        const data = await response.json();
+        setPriceData(data);
+        setLastUpdate(new Date());
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Bilinmeyen hata');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchPriceData();
+    
+    // Her 30 saniyede bir güncelle
+    const interval = setInterval(fetchPriceData, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Dil değiştirme
+  const toggleLanguage = () => {
+    setLanguage(prev => prev === 'tr' ? 'en' : 'tr');
+  };
+
+  // Veri yenileme
+  const refreshData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const response = await fetch('https://finans.truncgil.com/today.json');
+      if (!response.ok) {
+        throw new Error('Veri alınamadı');
+      }
+      const data = await response.json();
+      setPriceData(data);
+      setLastUpdate(new Date());
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Bilinmeyen hata');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Altın verilerini hazırlama
+  const prepareGoldData = (): GoldItem[] => {
+    if (!priceData) return [];
+
+    return goldTypes.map((goldType, index) => {
+      const data = priceData[goldType.key];
+      if (!data || typeof data === 'string') return null;
+
+      const buyingPrice = parseTurkishNumber(data.Alış || '0');
+      const changeText = data.Değişim || '0%';
+      const changeValue = parseTurkishNumber(changeText);
+      const isPositive = changeText.startsWith('+') || changeValue > 0;
+
+      return {
+        id: index + 1,
+        name: translations[language][goldType.name] || goldType.name,
+        currentPrice: buyingPrice,
+        change: changeValue,
+        changePercent: Math.abs(changeValue),
+        trend: isPositive ? "up" : "down",
+        lastUpdate: lastUpdate ? lastUpdate.toLocaleTimeString('tr-TR', { 
+          hour: '2-digit', 
+          minute: '2-digit' 
+        }) : "N/A",
+        category: translations[language][goldType.category] || goldType.category
+      };
+    }).filter((item): item is GoldItem => item !== null);
+  };
+
+  const liveGoldPrices = prepareGoldData();
+  // Loading state
+  if (loading && !priceData) {
+    return (
+      <section className="py-16 bg-gradient-to-br from-gray-50 via-white to-gray-100">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center">
+            <div className="inline-flex items-center gap-2 bg-gray-100 text-gray-600 px-3 py-1.5 rounded-full mb-4">
+              <TrendingUp className="w-3 h-3" />
+              <span className="text-xs font-medium">{translations[language].liveTracking}</span>
+            </div>
+            <h2 className="text-3xl font-bold text-gray-900 mb-3">
+              {translations[language].liveGoldPrices}
+            </h2>
+            <div className="w-16 h-0.5 bg-gray-300 mx-auto mb-4"></div>
+            <div className="flex items-center justify-center gap-2 text-lg text-gray-600">
+              <RefreshCw className="w-5 h-5 animate-spin" />
+              <span>{translations[language].loading}</span>
+            </div>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <section className="py-16 bg-gradient-to-br from-gray-50 via-white to-gray-100">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center">
+            <div className="inline-flex items-center gap-2 bg-red-100 text-red-600 px-3 py-1.5 rounded-full mb-4">
+              <TrendingUp className="w-3 h-3" />
+              <span className="text-xs font-medium">{translations[language].liveTracking}</span>
+            </div>
+            <h2 className="text-3xl font-bold text-gray-900 mb-3">
+              {translations[language].liveGoldPrices}
+            </h2>
+            <div className="w-16 h-0.5 bg-gray-300 mx-auto mb-4"></div>
+            <div className="bg-red-50 border border-red-200 rounded-lg p-6 max-w-md mx-auto">
+              <p className="text-red-600 mb-4">{translations[language].error}</p>
+              <button
+                onClick={refreshData}
+                className="inline-flex items-center gap-2 bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors duration-200"
+              >
+                <RefreshCw className="w-4 h-4" />
+                {translations[language].retry}
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
   return (
     <section className="py-16 bg-gradient-to-br from-gray-50 via-white to-gray-100">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="text-center mb-12">
-          <div className="inline-flex items-center gap-2 bg-gray-100 text-gray-600 px-3 py-1.5 rounded-full mb-4">
-            <TrendingUp className="w-3 h-3" />
-            <span className="text-xs font-medium">CANLI TAKİP</span>
+          <div className="flex items-center justify-center gap-4 mb-4">
+            <div className="inline-flex items-center gap-2 bg-gray-100 text-gray-600 px-3 py-1.5 rounded-full">
+              <TrendingUp className="w-3 h-3" />
+              <span className="text-xs font-medium">{translations[language].liveTracking}</span>
+            </div>
+            <button
+              onClick={toggleLanguage}
+              className="inline-flex items-center gap-2 bg-amber-100 text-amber-700 px-3 py-1.5 rounded-full hover:bg-amber-200 transition-colors duration-200"
+            >
+              <span className="text-xs font-medium">{language === 'tr' ? 'EN' : 'TR'}</span>
+            </button>
+            <button
+              onClick={refreshData}
+              disabled={loading}
+              className="inline-flex items-center gap-2 bg-blue-100 text-blue-700 px-3 py-1.5 rounded-full hover:bg-blue-200 transition-colors duration-200 disabled:opacity-50"
+            >
+              <RefreshCw className={`w-3 h-3 ${loading ? 'animate-spin' : ''}`} />
+              <span className="text-xs font-medium">Yenile</span>
+            </button>
           </div>
           <h2 className="text-3xl font-bold text-gray-900 mb-3">
-            Canlı Altın Fiyatları
+            {translations[language].liveGoldPrices}
           </h2>
           <div className="w-16 h-0.5 bg-gray-300 mx-auto mb-4"></div>
           <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-            Güncel altın fiyatlarını takip edin ve en uygun zamanda yatırım kararlarınızı alın
+            {translations[language].description}
           </p>
         </div>
 
@@ -110,13 +306,13 @@ export default function LiveGoldPrices() {
             <div className="grid grid-cols-6 gap-4 text-white font-medium text-sm">
               <div className="flex items-center gap-2">
                 <div className="w-2 h-2 bg-white rounded-full"></div>
-                Altın Türü
+                {translations[language].goldType}
               </div>
-              <div className="text-center">Kategori</div>
-              <div className="text-center">Güncel Fiyat</div>
-              <div className="text-center">Değişim</div>
-              <div className="text-center">Trend</div>
-              <div className="text-center">Güncelleme</div>
+              <div className="text-center">{translations[language].category}</div>
+              <div className="text-center">{translations[language].currentPrice}</div>
+              <div className="text-center">{translations[language].change}</div>
+              <div className="text-center">{translations[language].trend}</div>
+              <div className="text-center">{translations[language].update}</div>
             </div>
           </div>
           
@@ -131,8 +327,8 @@ export default function LiveGoldPrices() {
                   {/* Gold Type */}
                   <div className="flex items-center gap-2">
                     <div className={`w-2 h-2 rounded-full ${
-                      item.category === 'Yatırım' ? 'bg-emerald-500' : 
-                      item.category === 'Koleksiyon' ? 'bg-amber-500' : 'bg-purple-500'
+                      item.category === translations[language].investment ? 'bg-emerald-500' : 
+                      item.category === translations[language].collection ? 'bg-amber-500' : 'bg-purple-500'
                     }`}></div>
                     <div className="font-medium text-gray-800 group-hover:text-amber-700 transition-colors duration-200">
                       {item.name}
@@ -142,8 +338,8 @@ export default function LiveGoldPrices() {
                   {/* Category */}
                   <div className="text-center">
                     <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                      item.category === 'Yatırım' ? 'bg-gray-100 text-gray-700' :
-                      item.category === 'Koleksiyon' ? 'bg-gray-100 text-gray-700' :
+                      item.category === translations[language].investment ? 'bg-gray-100 text-gray-700' :
+                      item.category === translations[language].collection ? 'bg-gray-100 text-gray-700' :
                       'bg-gray-100 text-gray-700'
                     }`}>
                       {item.category}
@@ -207,7 +403,7 @@ export default function LiveGoldPrices() {
         <div className="text-center mt-6">
           <div className="inline-flex items-center gap-2 text-sm text-gray-500">
             <div className="w-2 h-2 bg-gray-400 rounded-full animate-pulse"></div>
-            <span>Fiyatlar her dakika güncellenmektedir</span>
+            <span>{translations[language].pricesUpdateEveryMinute}</span>
           </div>
         </div>
       </div>
